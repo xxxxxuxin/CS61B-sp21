@@ -133,9 +133,7 @@ public class Model extends Observable {
                     // merge check
                     boolean mergable = false;
                     for (int i = row+1; i<len; i += 1){
-                        if (board.tile(col, i) == null){
-                            continue;
-                        }else {
+                        if (board.tile(col, i) != null){
                             if (mergedOnce[col][i] == 0
                                 && board.tile(col, i).value() == curr.value()){
                                 mergable = true;
@@ -150,7 +148,7 @@ public class Model extends Observable {
                         board.move(col, row+distance[col],curr);
                         mergedOnce[col][row+distance[col]] = 1;
                         changed = true;
-                    }else{
+                    }else if(distance[col]!= 0){
                         board.move(col, row+distance[col],curr);
                         changed = true;
                     }
