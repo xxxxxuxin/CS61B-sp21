@@ -122,11 +122,12 @@ public class Model extends Observable {
                 distance[col] += 1;
             }
         }
-        int[][] mergeOnce = new int[len][len];
+        int[][] mergedOnce = new int[len][len];
 
         for (int col = 0; col<len; col += 1){
             for (int row = len-2; row>=0; row -= 1){
-                if (board.tile(col, row) == null){
+                Tile curr = board.tile(col, row);
+                if (curr == null){
                     distance[col] += 1;
                 }else{
                     // merge check
@@ -134,22 +135,28 @@ public class Model extends Observable {
                     for (int i = row+1; i<len; i += 1){
                         if (board.tile(col, i) == null){
                             continue;
-                        }else if (board.tile(col, i).value() == board.tile(col, row).value() &&
-                                    mergeOnce[col][i] == 0){
-                            mergable = true;
+                        }else {
+                            if (mergedOnce[col][i] == 0
+                                && board.tile(col, i).value() == curr.value()){
+                                mergable = true;
+                            }
                             break;
                         }
                     }
+
                     if (mergable){
                         distance[col] += 1;
-                        score += board.tile(col, row).value() * 2;
-                        board.move(col, row+distance[col], board.tile(col, row));
-                        mergeOnce[col][row+distance[col]] = 1;
+                        score += curr.value() * 2;
+                        board.move(col, row+distance[col],curr);
+                        mergedOnce[col][row+distance[col]] = 1;
                         changed = true;
-                    }else {
-                        board.move(col, row+distance[col],board.tile(col, row));
+                    }else{
+                        board.move(col, row+distance[col],curr);
                         changed = true;
                     }
+
+                    // changed = (distance[col] != 0);
+
                 }
             }
         }
