@@ -138,7 +138,8 @@ public class Model extends Observable {
         return changed;
     }
 
-    public boolean takeAction(int col, int row, int[] distance, boolean[][] mergedOnce){
+    // return true if the tile(if anyone) moved
+    private boolean takeAction(int col, int row, int[] distance, boolean[][] mergedOnce){
         // merge check
         int pos = sameValueAhead(col, row);
         boolean mergable = (pos != 0) && (!mergedOnce[col][pos]);
@@ -147,10 +148,11 @@ public class Model extends Observable {
         boolean merged = makeMove(mergable, col, row, distance);
         mergedOnce[col][row+distance[col]] = merged;
 
-        return (distance[col] != 0) || mergable;
+        return (distance[col] != 0) ;
     }
 
-    public int sameValueAhead(int col, int row){
+    // detect if the first tile above in the same column has the same value
+    private int sameValueAhead(int col, int row){
         int currValue = board.tile(col,row).value();
 
         for (int i = row+1; i< board.size(); i += 1){
@@ -164,7 +166,8 @@ public class Model extends Observable {
         return 0;
     }
 
-    public boolean makeMove(boolean mergable, int col, int row, int[] distance){
+    // return true only if this is a merge move
+    private boolean makeMove(boolean mergable, int col, int row, int[] distance){
         Tile curr = board.tile(col, row);
         if (mergable){
             distance[col] += 1;
