@@ -113,58 +113,68 @@ public class Model extends Observable {
         // TODO: Modify this.board (and perhaps this.score) to account
         // for the tilt to the Side SIDE. If the board changed, set the
         // changed local variable to true.
+
         board.setViewingPerspective(side);
         int len = board.size();
-        int[] distance = new int[len];
-        // the upmost row
-        for (int col = 0; col<len; col += 1){
-            if(board.tile(col, len-1) == null){
-                distance[col] += 1;
-            }
-        }
-        int[][] mergedOnce = new int[len][len];
+        int[] distance = new int[len];      // keep record of distance to move for each column
+        boolean[][] mergedOnce = new boolean[len][len];     // track the position where merge happened once
 
         for (int col = 0; col<len; col += 1){
-            for (int row = len-2; row>=0; row -= 1){
-                Tile curr = board.tile(col, row);
-                if (curr == null){
+            for (int row = len-1; row>=0; row -= 1){
+                if (board.tile(col, row) == null){
                     distance[col] += 1;
-                }else{
-                    // merge check
-                    boolean mergable = false;
-                    for (int i = row+1; i<len; i += 1){
-                        if (board.tile(col, i) != null){
-                            if (mergedOnce[col][i] == 0
-                                && board.tile(col, i).value() == curr.value()){
-                                mergable = true;
-                            }
-                            break;
-                        }
-                    }
-
-                    if (mergable){
-                        distance[col] += 1;
-                        score += curr.value() * 2;
-                        board.move(col, row+distance[col],curr);
-                        mergedOnce[col][row+distance[col]] = 1;
-                        changed = true;
-                    }else if(distance[col]!= 0){
-                        board.move(col, row+distance[col],curr);
-                        changed = true;
-                    }
-
-                    // changed = (distance[col] != 0);
-
+                }else if(row<len-1){
+                    // changed if any tile changed
+                    boolean tileChanged = takeAction(col, row, distance, mergedOnce);
+                    changed = changed || tileChanged;
                 }
             }
         }
-
         board.setViewingPerspective(Side.NORTH);
         checkGameOver();
         if (changed) {
             setChanged();
         }
         return changed;
+    }
+
+    public boolean takeAction(int col, int row, int[] distance, boolean[][] mergedOnce){
+        // merge check
+        int pos = sameValueAhead(col, row);
+        boolean mergable = (pos != 0) && (!mergedOnce[col][pos]);
+
+        // make move and make sure don't merge twice
+        boolean merged = makeMove(mergable, col, row, distance);
+        mergedOnce[col][row+distance[col]] = merged;
+
+        return (distance[col] != 0) || mergable;
+    }
+
+    public int sameValueAhead(int col, int row){
+        int currValue = board.tile(col,row).value();
+
+        for (int i = row+1; i< board.size(); i += 1){
+            if (board.tile(col, i) != null){
+                if(board.tile(col, i).value() == currValue){
+                    return i;
+                }
+                break;
+            }
+        }
+        return 0;
+    }
+
+    public boolean makeMove(boolean mergable, int col, int row, int[] distance){
+        Tile curr = board.tile(col, row);
+        if (mergable){
+            distance[col] += 1;
+            score += curr.value() * 2;
+            board.move(col, row+distance[col],curr);
+            return true;
+        }else if(distance[col]!= 0){
+            board.move(col, row+distance[col],curr);
+        }
+        return false;
     }
 
     /** Checks if the game is over and sets the gameOver variable
