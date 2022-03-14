@@ -3,8 +3,8 @@ A Berkeley CS course on "Data structures"
 
 course homepage: 
 
-[CS 61B](https://sp21.datastructur.es/)
-[Getting started](https://sp21.datastructur.es/materials/guides/getting-started)
+- [CS 61B](https://sp21.datastructur.es/)
+- [Getting started](https://sp21.datastructur.es/materials/guides/getting-started)
 
 
 about autograder for auditing: 
