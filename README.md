@@ -9,4 +9,4 @@ course homepage:
 
 about autograder for auditing: 
 
-[public autograder](https://fa20.datastructur.es/about.html#auditing-cs61b)
+- [public autograder](https://fa20.datastructur.es/about.html#auditing-cs61b)
