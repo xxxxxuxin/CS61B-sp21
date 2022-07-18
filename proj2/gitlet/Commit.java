@@ -98,8 +98,8 @@ public class Commit implements Serializable {
         if (history.mparent != null) {
             System.out.println("==="
                     + "\ncommit " + head
-                    + "\nMerge: " + history.parent.substring(0, 7) +
-                                    " " + history.mparent.substring(0, 7)
+                    + "\nMerge: " + history.parent.substring(0, 7)
+                                  + " " + history.mparent.substring(0, 7)
                     + "\nDate: " + date
                     + "\n" + message + "\n");
         } else {

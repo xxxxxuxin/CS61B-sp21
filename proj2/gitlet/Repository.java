@@ -2,6 +2,7 @@ package gitlet;
 
 import java.io.File;
 // import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -108,7 +109,7 @@ public class Repository {
             if (f.exists()) {
                 // compare the hash
                 String old = Blob.contentHash(set.getValue());
-                String cur = Utils.sha1(Utils.readContents(f));
+                String cur = Utils.sha1(set.getKey(), Utils.readContents(f));
                 if (!old.equals(cur)) {
                     changed.add(set.getKey() + " (modified)");
                 }
@@ -248,16 +249,24 @@ public class Repository {
             System.out.println("You have uncommitted changes.");
             return;
         }
-        // If an untracked file in the current commit
-        // would be overwritten or deleted by the merge,
-        // If a branch with the given name does not exist
+
         if (untrackCheck() && Branch.exist(branch)) {
             // If attempting to merge a branch with itself
             if (branch.equals(Branch.currBranch())) {
                 System.out.println("Cannot merge a branch with itself.");
                 return;
             }
-            Commit split = findSplit(branch);
+
+            String id = findSplit(branch);
+            if (id.equals("ERROR1")) {
+                System.out.println("Given branch is an ancestor of the current branch.");
+                return;
+            } else if (id.equals("ERROR2")) {
+                checkout(new String[]{"checkout", branch});
+                System.out.println("Current branch fast-forwarded.");
+                return;
+            }
+            Commit split = Commit.readCommit(id);
             Commit br = Commit.readCommit(Branch.getBranch(branch));
             Commit cur = Commit.readCommit(Branch.getHead());
             HashMap<String, String> A, B, C;
@@ -265,108 +274,128 @@ public class Repository {
             B = br.getBlobs();
             C = cur.getBlobs();
 
-            Set<String> files = A.keySet();
+            List<String> files = new LinkedList<>(A.keySet());
             files.addAll(B.keySet());
             files.addAll(C.keySet());
 
-            Stage.StagingArea area = Stage.getStaged();
-            HashMap<String, String> res = area.files2add;
-            for (String f : files) {
-                if (B.containsKey(f) && C.containsKey(f)) {
-                    if (B.get(f).equals(C.get(f))) {
+            combine(files, A, B, C);
+
+            String msg = "Merged %s into %s.";
+            Commit.makeCommit(String.format(msg, branch, Branch.currBranch()),
+                                Branch.getHead(), Branch.getBranch(branch));
+        }
+    }
+
+    private static void combine(List<String> files, HashMap<String, String> A,
+                                   HashMap<String, String> B, HashMap<String, String> C) {
+
+        boolean flag = false;
+        Stage.StagingArea area = Stage.getStaged();
+        HashMap<String, String> res = area.files2add;
+        for (String f : files) {
+            if (B.containsKey(f) && C.containsKey(f)) {
+                if (B.get(f).equals(C.get(f))) {
+                    res.put(f, B.get(f));
+                } else if (A.containsKey(f)) {
+                    if (B.get(f).equals(A.get(f))) {
+                        res.put(f, C.get(f));
+                    } else if (C.get(f).equals(A.get(f))) {
                         res.put(f, B.get(f));
-                    } else if (A.containsKey(f)) {
-                        if (B.get(f).equals(A.get(f))) {
-                            res.put(f, C.get(f));
-                        } else if (C.get(f).equals(A.get(f))) {
-                            res.put(f, B.get(f));
-                        } else {
-                            // conflict
-                            conflict(f, B.get(f), C.get(f));
-                        }
                     } else {
                         // conflict
-                        conflict(f, B.get(f), C.get(f));
+                        res.put(f, conflict(f, B.get(f), C.get(f)));
+                        flag = true;
                     }
-                } else if (!B.containsKey(f)) {
-                    if (C.containsKey(f)) {
-                        if (A.containsKey(f)) {
-                            if (A.get(f).equals(C.get(f))) {
-                                // remove
-                                File fi = Utils.join(CWD, f);
-                                Utils.restrictedDelete(fi);
-                            } else {
-                                res.put(f, C.get(f));
-                            }
+                } else {
+                    // conflict
+                    res.put(f, conflict(f, B.get(f), C.get(f)));
+                    flag = true;
+                }
+            } else if (!B.containsKey(f)) {
+                if (C.containsKey(f)) {
+                    if (A.containsKey(f)) {
+                        if (A.get(f).equals(C.get(f))) {
+                            // remove
+                            File fi = Utils.join(CWD, f);
+                            Utils.restrictedDelete(fi);
+                            area.files2rm.put(f, C.get(f));
                         } else {
-                            res.put(f, C.get(f));
+                            res.put(f, conflict(f, null, C.get(f)));
+                            flag = true;
                         }
+                    } else {
+                        res.put(f, C.get(f));
                     }
-                } else if (!C.containsKey(f)) {
-                    if (B.containsKey(f)) {
-                        if (A.containsKey(f)) {
-                            if (!A.get(f).equals(B.get(f))) {
-                                res.put(f, B.get(f));
-                            }
-                        } else {
-                            res.put(f, B.get(f));
+                }
+            } else if (!C.containsKey(f)) {
+                if (B.containsKey(f)) {
+                    if (A.containsKey(f)) {
+                        if (!A.get(f).equals(B.get(f))) {
+                            res.put(f, conflict(f, B.get(f), null));
+                            flag = true;
                         }
+                    } else {
+                        res.put(f, B.get(f));
                     }
                 }
             }
-
-            for (Map.Entry<String, String> set : res.entrySet()) {
-                checkoutFile(set.getKey(), set.getValue());
-            }
-            Utils.writeObject(Stage.STAGE, area);
-            String msg = "Merged %s into %s";
-            Commit.makeCommit(String.format(msg, branch, Branch.currBranch()),
-                                Branch.getHead(), Branch.getBranch(branch));
-
-
         }
+
+        if (flag) {
+            System.out.println("Encountered a merge conflict.");
+        }
+        for (Map.Entry<String, String> set : res.entrySet()) {
+            checkoutFile(set.getKey(), set.getValue());
+        }
+        Utils.writeObject(Stage.STAGE, area);
     }
 
-    private static void conflict(String f, String b, String c) {
-        String out = "<<<<<<< HEAD%s=======%s>>>>>>>";
+    private static String conflict(String f, String b, String c) {
+        String out = "<<<<<<< HEAD\n%s=======\n%s>>>>>>>\n";
         File both = Utils.join(CWD, f);
-        String curr = Blob.getContentAsString(c);
-        String br = Blob.getContentAsString(b);
-        Utils.writeContents(both, String.format(out, curr, br));
-        System.out.println("Encountered a merge conflict.");
+        String curr = c == null ? "" : Blob.getContentAsString(c);
+        String br = b == null ? "" : Blob.getContentAsString(b);
+        String content = String.format(out, curr, br);
+        Utils.writeContents(both, content);
+
+        Blob conf = new Blob(content.getBytes(StandardCharsets.UTF_8), f);
+        conf.save();
+        return conf.sha();
     }
 
-    private static Commit findSplit(String branch) {
+    private static String findSplit(String branch) {
         ArrayList<String> b = new ArrayList<>();
         ArrayList<String> c = new ArrayList<>();
 
-        b.add(Branch.getBranch(branch));
-        c.add(Branch.getHead());
 
-        String id = b.get(0);
+        String id = Branch.getBranch(branch);
         while (id != null) {
-            id = Commit.readCommit(id).getParent();
             b.add(id);
-        }
-        id = c.get(0);
-        while (id != null) {
             id = Commit.readCommit(id).getParent();
+        }
+        id = Branch.getHead();
+        while (id != null) {
             c.add(id);
+            id = Commit.readCommit(id).getParent();
         }
 
         int i = b.size() - 1;
         int j = c.size() - 1;
-        for (; i >= 0 && j >= 0; i -= 1, j-= 1) {
+        for (; i >= 0 && j >= 0; i -= 1, j -= 1) {
             if (!b.get(i).equals(c.get(j))) {
                 id  = b.get(i + 1);
                 break;
             }
-            if (i == 0 || j == 0) {
-                id = b.get(i);
+            if (i == 0) {
+                //id = b.get(i);
+                return "ERROR1";
+            } else if (j == 0) {
+                return "ERROR2";
             }
         }
-        return Commit.readCommit(id);
+        return id;
     }
+    
 
     public static boolean initialized() {
         return GITLET_DIR.exists();

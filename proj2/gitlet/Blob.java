@@ -13,10 +13,10 @@ public class Blob implements Serializable {
     public static final File BLOB_FOLDER = Utils.join(".gitlet", "blobs");
 
 
-    public Blob(byte[] content) {
+    public Blob(byte[] content, String f) {
         this.content = content;
         // calculate sha1 of the content
-        this.sha1 = Utils.sha1(content);
+        this.sha1 = Utils.sha1(f, content);
 
     }
 

@@ -44,7 +44,7 @@ public class Stage implements Serializable {
         byte[] contents = Utils.readContents(toAdd);
 
         // making blob
-        Blob tmp = new Blob(contents);
+        Blob tmp = new Blob(contents, filename);
 
         /**  If the current working version of the file is identical
          * to the version in the current commit, do not stage it to be
@@ -111,6 +111,7 @@ public class Stage implements Serializable {
 
         if (h != null) {
             rm.put(filename, h);
+            ad.remove(filename);
             Utils.restrictedDelete(filename);
         } else {
             // Unstage the file if it is currently staged for addition
