@@ -80,6 +80,9 @@ public class Commit implements Serializable {
     public String getParent() {
         return this.parent;
     }
+    public String getMparent() {
+        return this.mparent;
+    }
 
     public static void log() {
         String head = Branch.getHead();

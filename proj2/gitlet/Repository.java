@@ -258,10 +258,10 @@ public class Repository {
             }
 
             String id = findSplit(branch);
-            if (id.equals("ERROR1")) {
+            if (id.equals("c>b")) {
                 System.out.println("Given branch is an ancestor of the current branch.");
                 return;
-            } else if (id.equals("ERROR2")) {
+            } else if (id.equals("c<b")) {
                 checkout(new String[]{"checkout", branch});
                 System.out.println("Current branch fast-forwarded.");
                 return;
@@ -364,38 +364,48 @@ public class Repository {
     }
 
     private static String findSplit(String branch) {
-        ArrayList<String> b = new ArrayList<>();
-        ArrayList<String> c = new ArrayList<>();
-
+        Set<String> b = new HashSet<>();
 
         String id = Branch.getBranch(branch);
-        while (id != null) {
-            b.add(id);
-            id = Commit.readCommit(id).getParent();
+        String cur = Branch.getHead();
+        dfs(id, b);
+
+        if (b.contains(cur)) {
+            return "c<b";
         }
-        id = Branch.getHead();
-        while (id != null) {
-            c.add(id);
-            id = Commit.readCommit(id).getParent();
+        String res = dfsp(cur, b);
+        if (res.equals(id)) {
+            return "c>b";
         }
 
-        int i = b.size() - 1;
-        int j = c.size() - 1;
-        for (; i >= 0 && j >= 0; i -= 1, j -= 1) {
-            if (!b.get(i).equals(c.get(j))) {
-                id  = b.get(i + 1);
-                break;
-            }
-            if (i == 0) {
-                //id = b.get(i);
-                return "ERROR1";
-            } else if (j == 0) {
-                return "ERROR2";
-            }
-        }
-        return id;
+        return res;
     }
-    
+
+    private static void dfs(String id, Set<String> parents) {
+        if (id == null) {
+            return;
+        }
+        parents.add(id);
+        Commit tmp = Commit.readCommit(id);
+        dfs(tmp.getParent(), parents);
+        dfs(tmp.getMparent(), parents);
+    }
+
+    private static String dfsp(String id, Set<String> b) {
+        Commit tmp = Commit.readCommit(id);
+        String parent = tmp.getParent();
+        String mParent = tmp.getMparent();
+        if (parent == null) {
+            return id;
+        }
+        if (!b.contains(id) && b.contains(parent)) {
+            return parent;
+        } else if (!b.contains(id) && b.contains(mParent)) {
+            return mParent;
+        }
+        return dfsp(parent, b);
+    }
+
 
     public static boolean initialized() {
         return GITLET_DIR.exists();
